@@ -3,7 +3,7 @@ import azure.mgmt.compute  # use track2
 import azure.mgmt.network  # use track1, network track2 does not ready.
 import azure.mgmt.resource  # use track2
 from azure.identity import ClientSecretCredential
-from azure.common.credentials import ServicePrincipalCredentials
+# from azure.common.credentials import ServicePrincipalCredentials
 
 class createVMSample(object):
 
@@ -22,13 +22,13 @@ class createVMSample(object):
             tenant_id=tenant_id
         )
 
-        service_credentials = ServicePrincipalCredentials(
-            client_id=client_id,
-            secret=client_secret,
-            tenant=tenant_id
-        )
+        # service_credentials = ServicePrincipalCredentials(
+        #     client_id=client_id,
+        #     secret=client_secret,
+        #     tenant=tenant_id
+        # )
         self.compute_client = azure.mgmt.compute.ComputeManagementClient(credential=client_credentials, subscription_id=self.subscription_id)
-        self.network_client = azure.mgmt.network.NetworkManagementClient(credentials=service_credentials, subscription_id=self.subscription_id)
+        self.network_client = azure.mgmt.network.NetworkManagementClient(credential=client_credentials, subscription_id=self.subscription_id)
         self.resource_client = azure.mgmt.resource.ResourceManagementClient(credential=client_credentials, subscription_id=self.subscription_id)
 
         self.group = self.resource_client.resource_groups.create_or_update(
@@ -39,7 +39,7 @@ class createVMSample(object):
     # TODO: need change to track2 after network track2 ready.
     def create_virtual_network(self, group_name, location, network_name, subnet_name):
       
-        result = self.network_client.virtual_networks.create_or_update(
+        result = self.network_client.virtual_networks.begin_create_or_update(
             group_name,
             network_name,
             {
@@ -51,7 +51,7 @@ class createVMSample(object):
         )
         result_create = result.result()
 
-        async_subnet_creation = self.network_client.subnets.create_or_update(
+        async_subnet_creation = self.network_client.subnets.begin_create_or_update(
             group_name,
             network_name,
             subnet_name,
@@ -64,7 +64,7 @@ class createVMSample(object):
     # TODO: need change to track2 after network track2 ready.
     def create_network_interface(self, group_name, location, nic_name, subnet):
 
-        async_nic_creation = self.network_client.network_interfaces.create_or_update(
+        async_nic_creation = self.network_client.network_interfaces.begin_create_or_update(
             group_name,
             nic_name,
             {
@@ -89,7 +89,7 @@ class createVMSample(object):
         subnet = self.create_virtual_network(group_name, location, network_name, subnet_name)
         nic_id = self.create_network_interface(group_name, location, interface_name, subnet)
 
-        # Create a vm with empty data disks.[put]
+        # Create a vm with empty data disks.
         BODY = {
           "location": "eastus",
           "hardware_profile": {
