@@ -2,15 +2,14 @@ import argparse
 import os
 from string import Template
 
-template = '''
-# --------------------------------------------------------------------------
+template = '''# --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
 import os
 
-from azure.identity import EnvironmentCredential
+from azure.identity import DefaultAzureCredential
 from azure.mgmt.${target} import ${Target}ManagementClient
 from azure.mgmt.resource import ResourceManagementClient
 
@@ -26,11 +25,11 @@ def main():
 
     # Create client
     resource_client = ResourceManagementClient(
-        credential=EnvironmentCredential(),
+        credential=DefaultAzureCredential(),
         subscription_id=SUBSCRIPTION_ID
     )
     ${target}_client = ${Target}ManagementClient(
-        credential=EnvironmentCredential(),
+        credential=DefaultAzureCredential(),
         subscription_id=SUBSCRIPTION_ID
     )
     # - init depended client -
@@ -87,7 +86,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 '''
 
 def main():
