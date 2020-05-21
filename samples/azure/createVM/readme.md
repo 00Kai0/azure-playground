@@ -2,7 +2,7 @@
 Because track2 sdks haven't been released yet. We need run it in dev mode.
 
 ## 1. Create Dev enviroment for track2
-run `install_env_track2.sh`(in linux)   
+run `install_track2_package.sh`(in linux)   
 or you can install these packages from `track2_preview` by yourself
 
 ## 2. create env values
@@ -14,6 +14,9 @@ export AZURE_CLIENT_ID=""
 export AZURE_CLIENT_SECRET=""
 export SUBSCRIPTION_ID=""
 ```
+
+You can update env values in `env.sh` and run `source env.sh` to make it vailable in current shell.
+
 About how to create app registration, see here: https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app
 
 ## 3. test sample

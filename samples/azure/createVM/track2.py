@@ -1,97 +1,184 @@
 import os
-import azure.mgmt.compute  # use track2
-import azure.mgmt.network  # use track1, network track2 does not ready.
-import azure.mgmt.resource  # use track2
-from azure.identity import ClientSecretCredential
-# from azure.common.credentials import ServicePrincipalCredentials
+import random
+import string
+
+import azure.mgmt.compute as mgmt_compute
+import azure.mgmt.network as mgmt_network
+import azure.mgmt.resource as mgmt_resource
+from azure.mgmt.compute import models as compute_models
+from azure.mgmt.network import models as network_models
+from azure.mgmt.resource.resources import models as resource_models
+from azure.identity import DefaultAzureCredential
+
+YOUR_PASSWORD = 'A1_' + ''.join(random.choice(string.ascii_lowercase) for i in range(21))
 
 class createVMSample(object):
 
     def __init__(self, group_name, location):
         self.location = location
 
-        tenant_id = os.environ.get("AZURE_TENANT_ID", None)
-        client_id = os.environ.get("AZURE_CLIENT_ID", None)
-        client_secret = os.environ.get("AZURE_CLIENT_SECRET", None)
-        subscription_id = os.environ.get("SUBSCRIPTION_ID", None)
-        self.subscription_id = subscription_id
+        self.subscription_id = os.environ.get("SUBSCRIPTION_ID", None)
 
-        client_credentials = ClientSecretCredential(
-            client_id=client_id,
-            client_secret=client_secret,
-            tenant_id=tenant_id
+        self.compute_client = mgmt_compute.ComputeManagementClient(
+            credential=DefaultAzureCredential(),
+            subscription_id=self.subscription_id
         )
-
-        # service_credentials = ServicePrincipalCredentials(
-        #     client_id=client_id,
-        #     secret=client_secret,
-        #     tenant=tenant_id
-        # )
-        self.compute_client = azure.mgmt.compute.ComputeManagementClient(credential=client_credentials, subscription_id=self.subscription_id)
-        self.network_client = azure.mgmt.network.NetworkManagementClient(credential=client_credentials, subscription_id=self.subscription_id)
-        self.resource_client = azure.mgmt.resource.ResourceManagementClient(credential=client_credentials, subscription_id=self.subscription_id)
+        self.network_client = mgmt_network.NetworkManagementClient(
+            credential=DefaultAzureCredential(),
+            subscription_id=self.subscription_id
+        )
+        self.resource_client = mgmt_resource.ResourceManagementClient(
+            credential=DefaultAzureCredential(),
+            subscription_id=self.subscription_id
+        )
 
         self.group = self.resource_client.resource_groups.create_or_update(
             group_name,
-            {'location': self.location}
+            # model style
+            resource_models.ResourceGroup(
+                location=self.location
+            )
+
+            # json style
+            # {'location': self.location}
         )
 
-    # TODO: need change to track2 after network track2 ready.
     def create_virtual_network(self, group_name, location, network_name, subnet_name):
-      
+
         result = self.network_client.virtual_networks.begin_create_or_update(
             group_name,
             network_name,
-            {
-                'location': location,
-                'address_space': {
-                    'address_prefixes': ['10.0.0.0/16']
-                }
-            },
+            # model style
+            network_models.VirtualNetwork(
+                location=location,
+                address_space=network_models.AddressSpace(
+                    address_prefixes=['10.0.0.0/16']
+                )
+            )
+            
+            # json style
+            # {
+            #     'location': location,
+            #     'address_space': {
+            #         'address_prefixes': ['10.0.0.0/16']
+            #     }
+            # }
         )
-        result_create = result.result()
+        vnet = result.result()
 
         async_subnet_creation = self.network_client.subnets.begin_create_or_update(
             group_name,
             network_name,
             subnet_name,
-            {'address_prefix': '10.0.0.0/24'}
-        )
-        subnet_info = async_subnet_creation.result()
-          
-        return subnet_info
+            # model style
+            network_models.Subnet(
+                address_prefix='10.0.0.0/24'
+            )
 
-    # TODO: need change to track2 after network track2 ready.
+            # json style
+            # {'address_prefix': '10.0.0.0/24'}
+        )
+        subnet = async_subnet_creation.result()
+
+        return (vnet, subnet)
+
     def create_network_interface(self, group_name, location, nic_name, subnet):
 
         async_nic_creation = self.network_client.network_interfaces.begin_create_or_update(
             group_name,
             nic_name,
-            {
-                'location': location,
-                'ip_configurations': [{
-                    'name': 'MyIpConfig',
-                    'subnet': {
-                        'id': subnet.id
-                    }
-                }]
-            }
-        )
-        nic_info = async_nic_creation.result()
+            # model style
+            network_models.NetworkInterface(
+                location=location,
+                ip_configurations=[
+                    network_models.NetworkInterfaceIPConfiguration(
+                        name="MyIpConfig",
+                        subnet=network_models.Subnet(
+                            id=subnet.id
+                        )
+                    )
+                ]
+            )
 
-        return nic_info.id
+            # json style
+            # {
+            #     'location': location,
+            #     'ip_configurations': [{
+            #         'name': 'MyIpConfig',
+            #         'subnet': {
+            #             'id': subnet.id
+            #         }
+            #     }]
+            # }
+        )
+        nic = async_nic_creation.result()
+
+        return nic
 
     def create_vm(self, vm_name, network_name, subnet_name, interface_name):
         group_name = self.group.name
         location = self.location
 
         # create network
-        subnet = self.create_virtual_network(group_name, location, network_name, subnet_name)
-        nic_id = self.create_network_interface(group_name, location, interface_name, subnet)
+        vnet, subnet = self.create_virtual_network(group_name, location, network_name, subnet_name)
+        nic = self.create_network_interface(group_name, location, interface_name, subnet)
 
         # Create a vm with empty data disks.
-        BODY = {
-          "location": "eastus",
+        # model style
+        model_style_vm = compute_models.VirtualMachine(
+            location=location,
+            hardware_profile=compute_models.HardwareProfile(
+                vm_size="Standard_D2_v2"
+            ),
+            storage_profile=compute_models.StorageProfile(
+                image_reference=compute_models.ImageReference(
+                    sku="2016-Datacenter",
+                    publisher="MicrosoftWindowsServer",
+                    version="latest",
+                    offer="WindowsServer"
+                ),
+                os_disk=compute_models.OSDisk(
+                    caching=compute_models.CachingTypes.read_write,
+                    managed_disk=compute_models.ManagedDiskParameters(
+                        storage_account_type="Standard_LRS"
+                    ),
+                    name="myVMosdisk",
+                    create_option="FromImage"
+                ),
+                data_disks=[
+                    compute_models.DataDisk(
+                        disk_size_gb=1023,
+                        create_option="Empty",
+                        lun=0
+                    ),
+                    compute_models.DataDisk(
+                        disk_size_gb=1023,
+                        create_option="Empty",
+                        lun=1
+                    )
+                ]
+            ),
+            os_profile=compute_models.OSProfile(
+                admin_username="testuser",
+                computer_name="myVM",
+                admin_password=YOUR_PASSWORD,
+                windows_configuration=compute_models.WindowsConfiguration(
+                    enable_automatic_updates=True
+                )
+            ),
+            network_profile=compute_models.NetworkProfile(
+                network_interfaces=[
+                    compute_models.NetworkInterfaceReference(
+                        id=nic.id,
+                        primary=True
+                    )
+                ]
+            )
+        )
+
+        # json style
+        json_style_vm = {
+          "location": location,
           "hardware_profile": {
             "vm_size": "Standard_D2_v2"
           },
@@ -126,7 +213,7 @@ class createVMSample(object):
           "os_profile": {
             "admin_username": "testuser",
             "computer_name": "myVM",
-            "admin_password": "Aa1!zyx_",
+            "admin_password": YOUR_PASSWORD,
             "windows_configuration": {
               "enable_automatic_updates": True  # need automatic update for reimage
             }
@@ -134,16 +221,19 @@ class createVMSample(object):
           "network_profile": {
             "network_interfaces": [
               {
-                "id": nic_id,
-                "properties": {
-                  "primary": True
-                }
+                "id": nic.id,
+                "primary": True
               }
             ]
           }
         }
-        result = self.compute_client.virtual_machines.begin_create_or_update(group_name, vm_name, BODY)
-        result = result.result()
+        result = self.compute_client.virtual_machines.begin_create_or_update(
+            group_name,
+            vm_name,
+            model_style_vm
+        )
+        vm = result.result()
+        print("Create VM successfully\nVM:\n{}".format(vm))
 
 
 def main():
