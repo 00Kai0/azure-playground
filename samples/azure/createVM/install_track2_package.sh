@@ -10,3 +10,6 @@ pip install ../../../track2_preview/azure_mgmt_network-11.0.0-py2.py3-none-any.w
 
 # install identity
 pip install azure-identity
+
+# install azure-core
+pip install ../../../azure_core-1.6.0-py2.py3-none-any.whl
