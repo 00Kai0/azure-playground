@@ -1,3 +1,4 @@
+#!/bin/env python
 import argparse
 import os
 from string import Template
@@ -7,6 +8,7 @@ template = '''# ----------------------------------------------------------------
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+
 import os
 
 from azure.identity import DefaultAzureCredential
@@ -100,16 +102,16 @@ def main():
     args = parser.parse_args()
     if not args.resource_client:
         print("resource-client is needed.")
-        print("example:  python tt.py --out=/_/sample.py --is-lro=True --resource-client=network --resource=virtual_network")
+        print("example:  python template.py --out=/_/sample.py --is-lro=True --resource-client=network --resource=virtual_network")
         return 0
     if not args.resource:
         print("resource is needed.")
-        print("example:  python tt.py --out=/_/sample.py --is-lro=True --resource-client=network --resource=virtual_network")
+        print("example:  python template.py --out=/_/sample.py --is-lro=True --resource-client=network --resource=virtual_network")
     if args.out:
         # default is current path
         if not args.out.endswith(".py"):
             print("output file should like: /../sample.py")
-            print("example:  python tt.py --out=/_/sample.py --is-lro=True --resource-client=network --resource=virtual_network")
+            print("example:  python template.py --out=/_/sample.py --is-lro=True --resource-client=network --resource=virtual_network")
             return 0
         output_path = args.out
 
